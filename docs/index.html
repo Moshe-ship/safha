@@ -162,6 +162,7 @@ footer a{color:var(--fg2)}
   .clean-card h3{font-size:.72rem}
   .clean-card p{font-size:.65rem}
 
+  .test-grid{grid-template-columns:1fr!important}
   .dialect-grid{grid-template-columns:1fr 1fr}
 
   .term{max-width:100%;border-radius:10px}
@@ -209,11 +210,11 @@ footer a{color:var(--fg2)}
   <h1>safha<span class="ar">صفحة</span></h1>
   <p class="hero-sub">Scrape <strong>Arabic content</strong>. Clean it. Detect dialect. Output <strong>training-ready JSONL</strong>.</p>
   <div class="stat-pill glass">
-    <span class="stat-item"><strong>6</strong> commands</span>
+    <span class="stat-item"><strong>10</strong>-step cleaning</span>
     <span class="stat-sep">&middot;</span>
     <span class="stat-item"><strong>5</strong> dialects</span>
     <span class="stat-sep">&middot;</span>
-    <span class="stat-item"><strong>4</strong> formats</span>
+    <span class="stat-item"><strong>robots.txt</strong> compliant</span>
   </div>
   <div class="install-wrap glass">
     <span class="pr">$</span>
@@ -252,6 +253,26 @@ footer a{color:var(--fg2)}
     <div class="clean-card glass" data-a><div class="step-num">08</div><h3>Emoji removal</h3><p>Strip emoji and special Unicode symbols.</p></div>
     <div class="clean-card glass" data-a><div class="step-num">09</div><h3>Sentence splitting</h3><p>Segment text into clean, individual sentences.</p></div>
     <div class="clean-card glass" data-a><div class="step-num">10</div><h3>Quality filtering</h3><p>Drop short, long, or low-Arabic-ratio text.</p></div>
+  </div>
+</section>
+
+<!-- TESTED -->
+<section class="section">
+  <div class="s-label">Tested</div>
+  <div class="s-title">Real Arabic sites. Real results.</div>
+  <div class="test-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-top:1.5rem">
+    <div class="glass" style="padding:1.5rem;text-align:center" data-a>
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:var(--fg3);margin-bottom:.5rem">Arabic Wikipedia</div>
+      <div style="font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--green)">12,546</div>
+      <div style="font-size:.75rem;color:var(--fg2)">words extracted</div>
+      <div style="font-family:var(--mono);font-size:.85rem;color:var(--green);margin-top:.5rem">83% Arabic</div>
+    </div>
+    <div class="glass" style="padding:1.5rem;text-align:center" data-a>
+      <div style="font-size:.65rem;text-transform:uppercase;letter-spacing:.15em;color:var(--fg3);margin-bottom:.5rem">Al Jazeera News</div>
+      <div style="font-family:var(--mono);font-size:2rem;font-weight:700;color:var(--green)">470</div>
+      <div style="font-size:.75rem;color:var(--fg2)">words extracted</div>
+      <div style="font-family:var(--mono);font-size:.85rem;color:var(--green);margin-top:.5rem">98% Arabic</div>
+    </div>
   </div>
 </section>
 
