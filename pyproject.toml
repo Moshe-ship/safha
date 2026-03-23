@@ -1,0 +1,31 @@
+[project]
+name = "safha"
+version = "0.1.0"
+description = "Arabic Web Scraper for ML — fetch, clean, and export Arabic text"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "Musa the Carpenter" }]
+readme = "README.md"
+keywords = ["arabic", "web-scraper", "nlp", "ml", "dataset", "dialect"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Topic :: Text Processing :: Linguistic",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "rich>=13.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+safha = "safha.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"

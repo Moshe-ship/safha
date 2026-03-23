@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>safha — Arabic Web Scraper for ML</title>
+<meta name="description" content="Scrape Arabic content. Clean it. Detect dialect. Output training-ready JSONL.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,700&family=Space+Mono:wght@400;700&family=Noto+Kufi+Arabic:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#07080c;--glass:rgba(255,255,255,.03);--glass-border:rgba(255,255,255,.08);--glass-border-h:rgba(255,255,255,.15);
+  --fg:#e2e8f0;--fg2:#94a3b8;--fg3:#475569;
+  --teal:#14b8a6;--green:#22c55e;--emerald:#10b981;--cyan:#06b6d4;--violet:#a78bfa;
+  --font:'DM Sans',system-ui,sans-serif;--mono:'Space Mono',monospace;
+  --max:1000px;--radius:14px;
+}
+html{scroll-behavior:smooth;background:var(--bg)}
+body{font-family:var(--font);color:var(--fg);background:var(--bg);line-height:1.6;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+a{color:var(--teal);text-decoration:none}a:hover{text-decoration:underline}
+::selection{background:var(--teal);color:#fff}
+code{font-family:var(--mono);font-size:.85em;background:rgba(255,255,255,.06);padding:.15em .4em;border-radius:4px}
+
+.bg-mesh{position:fixed;inset:0;z-index:-2;overflow:hidden}
+.bg-mesh .orb{position:absolute;border-radius:50%;filter:blur(130px);opacity:.1;will-change:transform}
+.orb-1{width:600px;height:600px;background:var(--teal);top:-15%;left:10%;animation:d1 22s ease-in-out infinite}
+.orb-2{width:500px;height:500px;background:var(--green);bottom:0;right:-10%;animation:d2 26s ease-in-out infinite}
+.orb-3{width:400px;height:400px;background:var(--cyan);top:50%;left:-10%;animation:d1 18s ease-in-out infinite reverse}
+@keyframes d1{0%,100%{transform:translate(0,0)}50%{transform:translate(60px,30px)}}
+@keyframes d2{0%,100%{transform:translate(0,0)}50%{transform:translate(-50px,50px)}}
+
+.bg-grid{position:fixed;inset:0;z-index:-1;background-image:radial-gradient(rgba(255,255,255,.03) 1px,transparent 1px);background-size:30px 30px;mask-image:radial-gradient(ellipse 60% 60% at 50% 50%,black,transparent)}
+
+.glass{background:var(--glass);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border:1px solid var(--glass-border);border-radius:var(--radius);transition:border-color .3s,box-shadow .3s}
+.glass:hover{border-color:var(--glass-border-h)}
+
+nav{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:100;width:min(calc(100% - 2rem),var(--max));padding:.55rem 1.1rem;display:flex;justify-content:space-between;align-items:center}
+nav .logo{font-family:var(--mono);font-weight:700;font-size:.9rem;color:#fff}
+nav .logo .v{font-size:.65rem;color:var(--fg3);font-weight:400;margin-left:.2rem}
+.nav-links{display:flex;gap:1rem;align-items:center;font-size:.78rem}
+.nav-links a{color:var(--fg2)}
+.nav-links a:hover{color:#fff;text-decoration:none}
+.gh-pill{display:inline-flex;align-items:center;gap:.3rem;padding:.25rem .6rem;border:1px solid var(--glass-border);border-radius:20px;font-size:.72rem;color:var(--fg);font-family:var(--mono);transition:all .2s}
+.gh-pill:hover{border-color:var(--teal);color:var(--teal);text-decoration:none}
+.gh-pill svg{width:13px;height:13px;fill:currentColor}
+
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:7rem 1.5rem 5rem}
+.hero-badge{display:inline-flex;align-items:center;gap:.4rem;padding:.3rem .8rem;border-radius:20px;font-size:.65rem;font-weight:500;color:var(--teal);letter-spacing:.04em;margin-bottom:1.5rem}
+.hero-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--teal);animation:blink 1.5s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.2}}
+h1{font-size:clamp(3.5rem,11vw,7rem);font-weight:700;line-height:.9;letter-spacing:-.05em;color:#fff}
+h1 .ar{font-family:'Noto Kufi Arabic',sans-serif;font-size:.45em;display:block;color:var(--teal);margin-top:.5rem;letter-spacing:0}
+.hero-sub{font-size:clamp(.88rem,2vw,1.05rem);color:var(--fg2);max-width:520px;margin:1.5rem auto 0;font-weight:300;line-height:1.7;padding:0 .5rem}
+.hero-sub strong{color:#fff;font-weight:500}
+
+.stat-pill{display:inline-flex;align-items:center;gap:.8rem;margin:2rem 0;padding:.8rem 1.8rem;position:relative;overflow:hidden}
+.stat-pill::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(20,184,166,.12),rgba(16,185,129,.08));z-index:0}
+.stat-item{font-family:var(--mono);font-size:.8rem;color:var(--fg2);z-index:1;position:relative}
+.stat-item strong{color:var(--teal);font-weight:700}
+.stat-sep{color:var(--fg3);z-index:1;position:relative}
+
+.install-wrap{margin-top:1.5rem;display:flex;align-items:center;gap:.5rem;padding:.2rem .2rem .2rem .9rem;max-width:440px;font-family:var(--mono);font-size:.8rem}
+.install-wrap .pr{color:var(--fg3);user-select:none}
+.install-wrap code{flex:1;color:var(--green);background:none;padding:0}
+.install-btn{background:var(--teal);color:#fff;border:none;padding:.55rem 1rem;border-radius:calc(var(--radius) - 4px);cursor:pointer;font-family:var(--mono);font-size:.72rem;font-weight:700;transition:all .2s;white-space:nowrap}
+.install-btn:hover{filter:brightness(1.15)}
+.install-btn.copied{background:var(--green)}
+
+/* PIPELINE */
+.pipeline{display:flex;align-items:center;justify-content:center;gap:.4rem;flex-wrap:wrap;margin-top:1rem}
+.pipe-step{display:flex;align-items:center;gap:.4rem;padding:.5rem 1rem;font-family:var(--mono);font-size:.72rem;font-weight:700;color:#fff}
+.pipe-step .icon{font-size:1rem}
+.pipe-arrow{color:var(--fg3);font-size:1.2rem;user-select:none}
+
+.section{max-width:var(--max);margin:0 auto;padding:5rem 1.5rem}
+.s-label{font-family:var(--mono);font-size:.6rem;text-transform:uppercase;letter-spacing:.2em;color:var(--teal);margin-bottom:.6rem}
+.s-title{font-size:clamp(1.5rem,3.5vw,2rem);font-weight:700;color:#fff;letter-spacing:-.03em;margin-bottom:.4rem}
+.s-desc{color:var(--fg2);max-width:520px;font-size:.85rem;margin-bottom:2rem;font-weight:300;word-wrap:break-word}
+
+/* CLEANING CARDS */
+.clean-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem}
+.clean-card{padding:1rem 1.2rem;cursor:default}
+.clean-card .step-num{font-family:var(--mono);font-size:.55rem;color:var(--fg3);margin-bottom:.2rem}
+.clean-card h3{font-family:var(--mono);font-size:.78rem;color:var(--teal);margin-bottom:.3rem;font-weight:700}
+.clean-card p{font-size:.7rem;color:var(--fg2);line-height:1.5}
+
+/* COMMANDS */
+.cmd-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.6rem}
+.cmd{padding:1rem 1.2rem;cursor:default}
+.cmd h3{font-family:var(--mono);font-size:.78rem;color:var(--emerald);margin-bottom:.3rem;font-weight:700}
+.cmd p{font-size:.7rem;color:var(--fg2);line-height:1.5}
+
+/* DIALECT */
+.dialect-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:.6rem}
+.dialect-card{padding:1rem 1.2rem;text-align:center;cursor:default}
+.dialect-card .name{font-family:var(--mono);font-size:.78rem;color:var(--teal);font-weight:700}
+.dialect-card .name-ar{font-family:'Noto Kufi Arabic',sans-serif;font-size:.85rem;color:var(--fg2);margin-top:.2rem}
+
+/* TERMINAL */
+.term{max-width:620px;overflow:hidden}
+.term-bar{display:flex;gap:5px;padding:10px 14px;background:rgba(255,255,255,.02);border-bottom:1px solid rgba(255,255,255,.04)}
+.term-bar i{width:9px;height:9px;border-radius:50%;display:block}
+.term-bar .r{background:#ef4444}.term-bar .y{background:#f59e0b}.term-bar .g{background:var(--green)}
+.term-body{padding:1.2rem;font-family:var(--mono);font-size:.73rem;line-height:2}
+.term-body .p{color:var(--green);user-select:none}
+.term-body .c{color:#fff}
+.term-body .cm{color:var(--fg3)}
+
+footer{text-align:center;padding:3rem 1.5rem;font-size:.7rem;color:var(--fg3)}
+footer a{color:var(--fg2)}
+
+[data-a]{opacity:0;transform:translateY(20px);transition:opacity .7s cubic-bezier(.16,1,.3,1),transform .7s cubic-bezier(.16,1,.3,1)}
+[data-a].v{opacity:1;transform:none}
+.hero h1{animation:hi .9s cubic-bezier(.16,1,.3,1) both}
+.hero-sub{animation:hi .9s cubic-bezier(.16,1,.3,1) .1s both}
+.stat-pill{animation:hi .9s cubic-bezier(.16,1,.3,1) .2s both}
+.install-wrap{animation:hi .9s cubic-bezier(.16,1,.3,1) .3s both}
+@keyframes hi{from{opacity:0;transform:translateY(25px) scale(.98)}to{opacity:1;transform:none}}
+
+/* === TABLET (max 768px) === */
+@media(max-width:768px){
+  .section{padding:3.5rem 1rem}
+  .hero{padding:5.5rem 1rem 3rem;min-height:auto}
+  .cmd-grid,.clean-grid{grid-template-columns:1fr 1fr}
+  .dialect-grid{grid-template-columns:repeat(3,1fr)}
+  h1{font-size:clamp(2.8rem,9vw,7rem)}
+  .s-title{font-size:1.4rem}
+  .pipeline{gap:.2rem}
+  .pipe-step{padding:.4rem .6rem;font-size:.65rem}
+  .pipe-arrow{font-size:1rem}
+}
+
+/* === MOBILE (max 600px) === */
+@media(max-width:600px){
+  .nav-links a:not(.gh-pill){display:none}
+  nav{width:calc(100% - 1rem);top:8px;padding:.4rem .7rem}
+  .hero{padding:4.5rem .75rem 2rem}
+  h1{font-size:clamp(2.2rem,8vw,3.5rem)}
+  h1 .ar{font-size:.55em}
+  .hero-sub{font-size:.88rem;padding:0 .25rem}
+  .section{padding:2.5rem .75rem}
+  .s-title{font-size:1.25rem}
+  .s-desc{font-size:.8rem}
+
+  .install-wrap{flex-wrap:wrap;padding:.5rem;gap:.4rem;justify-content:center;max-width:100%}
+  .install-wrap .pr{display:none}
+  .install-wrap code{flex:none;font-size:.72rem;word-break:break-all}
+  .install-btn{width:100%}
+
+  .stat-pill{flex-direction:column;text-align:center;gap:.3rem;padding:.8rem 1rem}
+  .stat-sep{display:none}
+
+  .pipeline{flex-direction:column;gap:.3rem}
+  .pipe-arrow{transform:rotate(90deg)}
+
+  .cmd-grid,.clean-grid{grid-template-columns:1fr}
+  .cmd{padding:.8rem 1rem}
+  .cmd h3{font-size:.72rem}
+  .cmd p{font-size:.65rem}
+  .clean-card{padding:.8rem 1rem}
+  .clean-card h3{font-size:.72rem}
+  .clean-card p{font-size:.65rem}
+
+  .dialect-grid{grid-template-columns:1fr 1fr}
+
+  .term{max-width:100%;border-radius:10px}
+  .term-body{font-size:.62rem;overflow-x:auto;-webkit-overflow-scrolling:touch;white-space:pre;padding:.8rem}
+
+  footer{padding:2rem .75rem}
+  footer p{font-size:.65rem}
+}
+
+/* === SMALL MOBILE (max 380px) === */
+@media(max-width:380px){
+  h1{font-size:2rem}
+  h1 .ar{font-size:.6em}
+  .hero{padding:4rem .5rem 1.5rem}
+  .section{padding:2rem .5rem}
+  nav{padding:.35rem .5rem}
+  .gh-pill{font-size:.6rem;padding:.2rem .4rem}
+  .hero-badge{font-size:.58rem;padding:.25rem .6rem}
+  .hero-sub{font-size:.82rem}
+  .dialect-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-mesh"><div class="orb orb-1"></div><div class="orb orb-2"></div><div class="orb orb-3"></div></div>
+<div class="bg-grid"></div>
+
+<nav class="glass">
+  <div class="logo">safha<span class="v">v0.1</span></div>
+  <div class="nav-links">
+    <a href="#pipeline">Pipeline</a>
+    <a href="#commands">Commands</a>
+    <a href="#dialects">Dialects</a>
+    <a href="kindle.html" class="gh-pill" style="border-color:var(--fg3);color:var(--fg2)"><svg viewBox="0 0 24 24" style="width:13px;height:13px;fill:currentColor"><path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>Kindle</a>
+    <a href="https://github.com/Moshe-ship/safha" class="gh-pill">
+      <svg viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      GitHub
+    </a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-badge glass">Arabic ML Data Pipeline</div>
+  <h1>safha<span class="ar">صفحة</span></h1>
+  <p class="hero-sub">Scrape <strong>Arabic content</strong>. Clean it. Detect dialect. Output <strong>training-ready JSONL</strong>.</p>
+  <div class="stat-pill glass">
+    <span class="stat-item"><strong>6</strong> commands</span>
+    <span class="stat-sep">&middot;</span>
+    <span class="stat-item"><strong>5</strong> dialects</span>
+    <span class="stat-sep">&middot;</span>
+    <span class="stat-item"><strong>4</strong> formats</span>
+  </div>
+  <div class="install-wrap glass">
+    <span class="pr">$</span>
+    <code>pip install safha</code>
+    <button class="install-btn" onclick="doCopy(this)">Copy</button>
+  </div>
+</section>
+
+<section class="section" id="pipeline">
+  <div class="s-label">Pipeline</div>
+  <div class="s-title">From raw web to clean training data.</div>
+  <div class="s-desc">safha handles the full pipeline: scrape Arabic pages, strip noise, normalize text, detect dialect, and export. No API keys. No config. Just clean data.</div>
+  <div class="pipeline" data-a>
+    <div class="pipe-step glass"><span class="icon">🌐</span> Scrape</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-step glass"><span class="icon">🧹</span> Clean</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-step glass"><span class="icon">🗣</span> Detect</div>
+    <span class="pipe-arrow">→</span>
+    <div class="pipe-step glass"><span class="icon">📦</span> Export</div>
+  </div>
+</section>
+
+<section class="section" id="cleaning">
+  <div class="s-label">Cleaning</div>
+  <div class="s-title">10 steps. Zero noise.</div>
+  <div class="s-desc">Every scraped text runs through a multi-step cleaning pipeline before it touches your training data.</div>
+  <div class="clean-grid">
+    <div class="clean-card glass" data-a><div class="step-num">01</div><h3>URL removal</h3><p>Strip embedded links and raw URLs from text.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">02</div><h3>Email removal</h3><p>Remove email addresses scattered in page content.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">03</div><h3>@mention removal</h3><p>Strip social media handles and @mentions.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">04</div><h3>Alef normalization</h3><p>Unify alef variants (أ إ آ) to bare alef (ا).</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">05</div><h3>Ya normalization</h3><p>Unify ya and alef maqsura (ي ← ى).</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">06</div><h3>Tatweel removal</h3><p>Strip kashida elongation characters (ـ).</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">07</div><h3>Tashkeel stripping</h3><p>Remove diacritics. Optional — use --keep-tashkeel.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">08</div><h3>Emoji removal</h3><p>Strip emoji and special Unicode symbols.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">09</div><h3>Sentence splitting</h3><p>Segment text into clean, individual sentences.</p></div>
+    <div class="clean-card glass" data-a><div class="step-num">10</div><h3>Quality filtering</h3><p>Drop short, long, or low-Arabic-ratio text.</p></div>
+  </div>
+</section>
+
+<section class="section" id="commands">
+  <div class="s-label">Commands</div>
+  <div class="s-title">6 commands. Full pipeline.</div>
+  <div class="cmd-grid">
+    <div class="cmd glass" data-a><h3>scrape</h3><p>Scrape Arabic content from a URL. Extracts text, strips HTML, outputs structured JSONL.</p></div>
+    <div class="cmd glass" data-a><h3>sitemap</h3><p>Crawl all URLs in a sitemap. Parallel fetching with rate limiting.</p></div>
+    <div class="cmd glass" data-a><h3>clean</h3><p>Run the full cleaning pipeline on raw scraped data. 10 steps, configurable.</p></div>
+    <div class="cmd glass" data-a><h3>detect</h3><p>Classify each text by Arabic dialect — MSA, Egyptian, Gulf, Levantine, Moroccan.</p></div>
+    <div class="cmd glass" data-a><h3>stats</h3><p>Show dataset statistics — word count, dialect distribution, quality scores.</p></div>
+    <div class="cmd glass" data-a><h3>explain</h3><p>Explain what each cleaning step does with before/after examples.</p></div>
+  </div>
+</section>
+
+<section class="section" id="dialects">
+  <div class="s-label">Dialects</div>
+  <div class="s-title">5 Arabic dialects. Keyword-based detection.</div>
+  <div class="s-desc">Each text is classified into one of five dialect categories using keyword-based heuristics.</div>
+  <div class="dialect-grid">
+    <div class="dialect-card glass" data-a><div class="name">MSA</div><div class="name-ar">فصحى</div></div>
+    <div class="dialect-card glass" data-a><div class="name">Egyptian</div><div class="name-ar">مصري</div></div>
+    <div class="dialect-card glass" data-a><div class="name">Gulf</div><div class="name-ar">خليجي</div></div>
+    <div class="dialect-card glass" data-a><div class="name">Levantine</div><div class="name-ar">شامي</div></div>
+    <div class="dialect-card glass" data-a><div class="name">Moroccan</div><div class="name-ar">مغربي</div></div>
+  </div>
+</section>
+
+<section class="section" id="start">
+  <div class="s-label">Get Started</div>
+  <div class="s-title">Four commands to training data.</div>
+  <div class="term glass" data-a>
+    <div class="term-bar"><i class="r"></i><i class="y"></i><i class="g"></i></div>
+    <div class="term-body">
+<span class="cm"># Install</span>
+<span class="p">$ </span><span class="c">pip install safha</span>
+
+<span class="cm"># Scrape a Wikipedia article</span>
+<span class="p">$ </span><span class="c">safha scrape https://ar.wikipedia.org/wiki/... --output data.jsonl</span>
+
+<span class="cm"># Crawl an entire sitemap</span>
+<span class="p">$ </span><span class="c">safha sitemap https://example.com/sitemap.xml</span>
+
+<span class="cm"># Clean the scraped data</span>
+<span class="p">$ </span><span class="c">safha clean raw_data.jsonl --output clean.jsonl</span>
+
+<span class="cm"># Detect dialects</span>
+<span class="p">$ </span><span class="c">safha detect data.jsonl</span>
+
+<span class="cm"># Show dataset stats</span>
+<span class="p">$ </span><span class="c">safha stats clean.jsonl</span>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p style="font-size:.85rem;color:var(--fg2);margin-bottom:.8rem;line-height:1.6" dir="rtl">مقدمة من <a href="https://x.com/i/communities/2032184341682643429" style="color:var(--teal)">مجتمع الذكاء الاصطناعي السعودي</a> للعرب أولا وللعالم أجمع</p>
+  <p style="font-size:.8rem;color:var(--fg3);margin-bottom:1rem">Brought to you by the <a href="https://x.com/i/communities/2032184341682643429" style="color:var(--fg2)">Saudi AI Community</a> — for Arabs first, and the world at large.</p>
+  <p style="margin-bottom:.8rem">MIT License &middot; Built by <a href="https://github.com/Moshe-ship">Musa the Carpenter</a> &middot; <a href="https://github.com/Moshe-ship/safha">GitHub</a></p>
+  <p style="font-size:.65rem;color:var(--fg3)">
+    <a href="https://github.com/Moshe-ship/artok" style="color:var(--fg3)">artok</a> &middot;
+    <a href="https://github.com/Moshe-ship/bidi-guard" style="color:var(--fg3)">bidi-guard</a> &middot;
+    <a href="https://github.com/Moshe-ship/arabench" style="color:var(--fg3)">arabench</a> &middot;
+    <a href="https://github.com/Moshe-ship/majal" style="color:var(--fg3)">majal</a> &middot;
+    <a href="https://github.com/Moshe-ship/khalas" style="color:var(--fg3)">khalas</a> &middot;
+    <a href="https://github.com/Moshe-ship/safha" style="color:var(--fg3)">safha</a>
+  </p>
+</footer>
+
+<script>
+function doCopy(b){navigator.clipboard.writeText('pip install safha');b.textContent='Copied!';b.classList.add('copied');setTimeout(()=>{b.textContent='Copy';b.classList.remove('copied')},1500)}
+const io=new IntersectionObserver(es=>{es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('v');io.unobserve(e.target)}})},{threshold:.08,rootMargin:'0px 0px -30px 0px'});
+document.querySelectorAll('[data-a]').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
