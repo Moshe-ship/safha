@@ -57,7 +57,12 @@ _LETTER_RE = re.compile(r"\w", re.UNICODE)
 
 # Block-level elements whose content should be stripped entirely.
 _STRIP_BLOCKS = re.compile(
-    r"<\s*(script|style|nav|header|footer|aside|noscript)[^>]*>.*?</\s*\1\s*>",
+    r"<\s*(script|style|nav|header|footer|aside|noscript|iframe|svg|form|button)[^>]*>.*?</\s*\1\s*>",
+    re.IGNORECASE | re.DOTALL,
+)
+# Additional boilerplate patterns common in Arabic sites
+_STRIP_DIVS = re.compile(
+    r'<div[^>]*class="[^"]*(?:sidebar|widget|comment|share|social|related|ad-|ads-|cookie|popup|modal|menu|breadcrumb)[^"]*"[^>]*>.*?</div>',
     re.IGNORECASE | re.DOTALL,
 )
 
@@ -71,13 +76,45 @@ _BLANK_LINES = re.compile(r"\n{3,}")
 # ---------------------------------------------------------------------------
 
 
+def check_robots_txt(url: str, user_agent: str = "*") -> bool:
+    """Check if a URL is allowed by the site's robots.txt.
+    Returns True if allowed or robots.txt is unreachable."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
+        resp = httpx.get(robots_url, timeout=5, follow_redirects=True)
+        if resp.status_code != 200:
+            return True  # No robots.txt = allowed
+        # Simple parser: check for Disallow matching our path
+        path = parsed.path or "/"
+        lines = resp.text.splitlines()
+        applies = False
+        for line in lines:
+            line = line.strip()
+            if line.lower().startswith("user-agent:"):
+                agent = line.split(":", 1)[1].strip()
+                applies = agent == "*" or user_agent.lower() in agent.lower()
+            elif applies and line.lower().startswith("disallow:"):
+                disallowed = line.split(":", 1)[1].strip()
+                if disallowed and path.startswith(disallowed):
+                    return False
+        return True
+    except Exception:
+        return True  # Can't check = assume allowed
+
+
 def fetch_page(url: str, config: ScrapeConfig | None = None) -> str | None:
     """Fetch a URL and return its HTML, or *None* on failure.
 
-    Respects *config.delay* by sleeping before the request and uses
-    *config.timeout* / *config.user_agent* for the HTTP call.
+    Respects robots.txt, *config.delay* by sleeping before the request,
+    and uses *config.timeout* / *config.user_agent* for the HTTP call.
     """
     cfg = config or ScrapeConfig()
+
+    # Respect robots.txt
+    if not check_robots_txt(url, cfg.user_agent):
+        return None
 
     if cfg.delay > 0:
         time.sleep(cfg.delay)
@@ -86,7 +123,11 @@ def fetch_page(url: str, config: ScrapeConfig | None = None) -> str | None:
         resp = httpx.get(
             url,
             timeout=cfg.timeout,
-            headers={"User-Agent": cfg.user_agent},
+            headers={
+                "User-Agent": cfg.user_agent,
+                "Accept": "text/html,application/xhtml+xml",
+                "Accept-Language": "ar,en;q=0.5",
+            },
             follow_redirects=True,
         )
         resp.raise_for_status()
@@ -108,6 +149,7 @@ def extract_text(html: str) -> str:
     normalises whitespace.
     """
     text = _STRIP_BLOCKS.sub("", html)
+    text = _STRIP_DIVS.sub("", text)
     text = _HTML_TAG.sub(" ", text)
     text = html_module.unescape(text)
     text = _WHITESPACE.sub(" ", text)
